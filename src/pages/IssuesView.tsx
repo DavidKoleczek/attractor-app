@@ -42,11 +42,13 @@ import {
   Check,
   Circle,
   CircleDot,
+  ExternalLink,
   MessageSquare,
   Plus,
   Tag,
   CircleOff,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 const PER_PAGE = 30;
 
@@ -192,6 +194,16 @@ export function IssuesView() {
               <p className="text-xs text-muted-foreground truncate max-w-md">
                 {localPath}
               </p>
+            )}
+            {owner && repo && (
+              <button
+                type="button"
+                onClick={() => openUrl(`https://github.com/${owner}/${repo}`)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Data Store: {owner}/{repo}
+                <ExternalLink className="size-3" />
+              </button>
             )}
           </div>
         </div>
