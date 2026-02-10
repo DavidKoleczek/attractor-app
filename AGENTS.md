@@ -1,8 +1,9 @@
-Attractor App is an app aimed at code-free creation of complex apps.
+Attractor App is an app aimed at code-free creation of complex apps such as the complexity of Microsoft Word.
 
 # General Instructions
 
 - DO NOT make any commits or pushes to any repos without the user's explicit permission.
+- Before commit and pushing, make sure under all circumstances that no secrets or private information is being committed.
 - Shortcuts are not appropriate. When in doubt, you must work with the user for guidance.
 - Anything is possible. Do not blame external factors after something doesn't work on the first try. Instead, investigate and test assumptions through debugging through first principles.
 - Keep the README up to date with any changes to the app's functionality, features, or usage instructions. Although, keep it short and concise.

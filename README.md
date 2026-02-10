@@ -1,6 +1,6 @@
 # Attractor Issues
 
-A Tauri v2 desktop app for managing issues backed by GitHub repos as a data store. GitHub is used purely for storage (JSON files in git), not its issue tracker.
+Attractor App is an app aimed at code-free creation of complex apps.
 
 ## Prerequisites
 
