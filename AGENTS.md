@@ -13,7 +13,14 @@ Attractor App is an app aimed at code-free creation of complex apps such as at t
   - No emojis or em dashes.
   - Documentation should be written exactly like it is for production-grade, polished, open-source applications.
 
+# Architecture
+
+Two services, one frontend:
+
+- **issues_server/** -- FastAPI backend. Git-backed JSON file storage. Manages projects, issues, comments, labels, and Amplifier sessions. Run with `uv run fastapi dev src/issues_server/main.py`.
+- **app/** -- React + TypeScript + Tailwind v4 + shadcn/ui SPA. Communicates with the backend via REST (`/api/...`) and WebSocket (`/ws`). Run with `pnpm dev` (Vite proxies API calls to the backend).
+- **Builder Service** -- not yet implemented. Separate FastAPI service that receives NL specs from the issues server and runs the Attractor pipeline (NL spec -> Graphviz dot -> Attractor runner).
 
 # Key Files
 
-@README.md 
+@README.md
