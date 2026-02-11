@@ -900,7 +900,6 @@ pub async fn list_issues(
     state: Option<String>,
     labels: Option<String>,
     assignee: Option<String>,
-    milestone: Option<String>,
     sort: Option<String>,
     direction: Option<String>,
     page: Option<u32>,
@@ -913,7 +912,6 @@ pub async fn list_issues(
         state,
         labels: label_vec,
         assignee,
-        milestone,
         sort,
         direction,
         page,
@@ -947,7 +945,6 @@ pub async fn create_issue(
     body: Option<String>,
     assignees: Option<Vec<String>>,
     labels: Option<Vec<String>>,
-    milestone: Option<u64>,
 ) -> Result<Issue, String> {
     let token = require_token(&app_state)?;
     let user = require_user(&app_state)?;
@@ -982,14 +979,6 @@ pub async fn create_issue(
             None => Vec::new(),
         };
 
-        let issue_milestone = match milestone {
-            Some(num) => {
-                let ms = storage::read_milestones(&path)?;
-                ms.into_iter().find(|m| m.number == num)
-            }
-            None => None,
-        };
-
         let issue = Issue {
             id: issue_number,
             number: issue_number,
@@ -997,11 +986,8 @@ pub async fn create_issue(
             body,
             state: "open".to_string(),
             state_reason: None,
-            locked: false,
-            lock_reason: None,
             labels: issue_labels,
             assignees: assignee_users,
-            milestone: issue_milestone,
             comments: 0,
             created_at: now,
             updated_at: now,
@@ -1054,7 +1040,6 @@ pub async fn update_issue(
     state_reason: Option<String>,
     assignees: Option<Vec<String>>,
     labels: Option<Vec<String>>,
-    milestone: Option<u64>,
 ) -> Result<Issue, String> {
     let token = require_token(&app_state)?;
     let user = require_user(&app_state)?;
@@ -1102,10 +1087,6 @@ pub async fn update_issue(
                 .filter(|l| label_names.contains(&l.name))
                 .collect();
         }
-        if let Some(ms_num) = milestone {
-            let ms = storage::read_milestones(&path)?;
-            issue.milestone = ms.into_iter().find(|m| m.number == ms_num);
-        }
 
         issue.updated_at = now;
         storage::write_issue(&path, &issue)?;
@@ -1117,71 +1098,6 @@ pub async fn update_issue(
             &token,
         )?;
         Ok(issue)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn lock_issue(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    issue_number: u64,
-    lock_reason: Option<String>,
-) -> Result<(), String> {
-    let token = require_token(&app_state)?;
-    let user = require_user(&app_state)?;
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<(), AppError> {
-        storage::sync_repo(&path, &token)?;
-        let mut issue = storage::read_issue(&path, issue_number)?;
-        issue.locked = true;
-        issue.lock_reason = lock_reason;
-        issue.updated_at = Utc::now();
-        storage::write_issue(&path, &issue)?;
-        storage::commit_and_push(
-            &path,
-            &format!("Lock issue #{}", issue_number),
-            &user.login,
-            &author_email(&user.login),
-            &token,
-        )?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn unlock_issue(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    issue_number: u64,
-) -> Result<(), String> {
-    let token = require_token(&app_state)?;
-    let user = require_user(&app_state)?;
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<(), AppError> {
-        storage::sync_repo(&path, &token)?;
-        let mut issue = storage::read_issue(&path, issue_number)?;
-        issue.locked = false;
-        issue.lock_reason = None;
-        issue.updated_at = Utc::now();
-        storage::write_issue(&path, &issue)?;
-        storage::commit_and_push(
-            &path,
-            &format!("Unlock issue #{}", issue_number),
-            &user.login,
-            &author_email(&user.login),
-            &token,
-        )?;
-        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1683,259 +1599,6 @@ pub async fn remove_issue_label(
             &token,
         )?;
         Ok(issue.labels)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-// ===================================================================
-//  Milestone commands
-// ===================================================================
-
-#[tauri::command]
-pub async fn list_milestones(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    state: Option<String>,
-    sort: Option<String>,
-    direction: Option<String>,
-    page: Option<u32>,
-    per_page: Option<u32>,
-) -> Result<Vec<Milestone>, String> {
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<Vec<Milestone>, AppError> {
-        let mut milestones = storage::read_milestones(&path)?;
-
-        // Filter by state
-        if let Some(ref st) = state {
-            if st != "all" {
-                milestones.retain(|m| m.state == *st);
-            }
-        } else {
-            milestones.retain(|m| m.state == "open");
-        }
-
-        // Sort
-        let sort_field = sort.as_deref().unwrap_or("due_on");
-        let dir = direction.as_deref().unwrap_or("asc");
-        milestones.sort_by(|a, b| {
-            let ord = match sort_field {
-                "completeness" => {
-                    let a_total = a.open_issues + a.closed_issues;
-                    let b_total = b.open_issues + b.closed_issues;
-                    let a_pct = if a_total > 0 {
-                        a.closed_issues * 100 / a_total
-                    } else {
-                        0
-                    };
-                    let b_pct = if b_total > 0 {
-                        b.closed_issues * 100 / b_total
-                    } else {
-                        0
-                    };
-                    a_pct.cmp(&b_pct)
-                }
-                _ => a.due_on.cmp(&b.due_on), // "due_on" default
-            };
-            if dir == "desc" {
-                ord.reverse()
-            } else {
-                ord
-            }
-        });
-
-        // Paginate
-        let pg = page.unwrap_or(1).max(1);
-        let pp = per_page.unwrap_or(30).min(100);
-        let start = ((pg - 1) * pp) as usize;
-        let items: Vec<Milestone> = milestones
-            .into_iter()
-            .skip(start)
-            .take(pp as usize)
-            .collect();
-
-        Ok(items)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn create_milestone(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    title: String,
-    description: Option<String>,
-    due_on: Option<String>,
-    state: Option<String>,
-) -> Result<Milestone, String> {
-    let token = require_token(&app_state)?;
-    let user = require_user(&app_state)?;
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<Milestone, AppError> {
-        storage::sync_repo(&path, &token)?;
-
-        let mut meta = storage::read_meta(&path)?;
-        let ms_number = meta.next_milestone_id;
-        meta.next_milestone_id += 1;
-
-        let now = Utc::now();
-        let due = due_on.and_then(|s| s.parse::<chrono::DateTime<Utc>>().ok());
-
-        let milestone = Milestone {
-            id: ms_number,
-            number: ms_number,
-            title: title.clone(),
-            description,
-            state: state.unwrap_or_else(|| "open".to_string()),
-            open_issues: 0,
-            closed_issues: 0,
-            created_at: now,
-            updated_at: now,
-            closed_at: None,
-            due_on: due,
-        };
-
-        let mut milestones = storage::read_milestones(&path)?;
-        milestones.push(milestone.clone());
-        storage::write_milestones(&path, &milestones)?;
-        storage::write_meta(&path, &meta)?;
-
-        storage::commit_and_push(
-            &path,
-            &format!("Create milestone #{}: {}", ms_number, title),
-            &user.login,
-            &author_email(&user.login),
-            &token,
-        )?;
-        Ok(milestone)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn get_milestone(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    milestone_number: u64,
-) -> Result<Milestone, String> {
-    let path = repo_path(&app_state, &owner, &repo);
-    tokio::task::spawn_blocking(move || -> Result<Milestone, AppError> {
-        let milestones = storage::read_milestones(&path)?;
-        milestones
-            .into_iter()
-            .find(|m| m.number == milestone_number)
-            .ok_or_else(|| {
-                AppError::NotFound(format!("Milestone #{} not found", milestone_number))
-            })
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn update_milestone(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    milestone_number: u64,
-    title: Option<String>,
-    description: Option<String>,
-    due_on: Option<String>,
-    milestone_state: Option<String>,
-) -> Result<Milestone, String> {
-    let token = require_token(&app_state)?;
-    let user = require_user(&app_state)?;
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<Milestone, AppError> {
-        storage::sync_repo(&path, &token)?;
-        let mut milestones = storage::read_milestones(&path)?;
-
-        let ms = milestones
-            .iter_mut()
-            .find(|m| m.number == milestone_number)
-            .ok_or_else(|| {
-                AppError::NotFound(format!("Milestone #{} not found", milestone_number))
-            })?;
-
-        let now = Utc::now();
-        if let Some(t) = title {
-            ms.title = t;
-        }
-        if let Some(d) = description {
-            ms.description = Some(d);
-        }
-        if let Some(d) = due_on {
-            ms.due_on = d.parse::<chrono::DateTime<Utc>>().ok();
-        }
-        if let Some(s) = milestone_state {
-            if s == "closed" && ms.state != "closed" {
-                ms.closed_at = Some(now);
-            } else if s == "open" {
-                ms.closed_at = None;
-            }
-            ms.state = s;
-        }
-        ms.updated_at = now;
-
-        let updated = ms.clone();
-        storage::write_milestones(&path, &milestones)?;
-        storage::commit_and_push(
-            &path,
-            &format!("Update milestone #{}", milestone_number),
-            &user.login,
-            &author_email(&user.login),
-            &token,
-        )?;
-        Ok(updated)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn delete_milestone(
-    app_state: State<'_, AppState>,
-    owner: String,
-    repo: String,
-    milestone_number: u64,
-) -> Result<(), String> {
-    let token = require_token(&app_state)?;
-    let user = require_user(&app_state)?;
-    let path = repo_path(&app_state, &owner, &repo);
-
-    tokio::task::spawn_blocking(move || -> Result<(), AppError> {
-        storage::sync_repo(&path, &token)?;
-        let mut milestones = storage::read_milestones(&path)?;
-        let before = milestones.len();
-        milestones.retain(|m| m.number != milestone_number);
-        if milestones.len() == before {
-            return Err(AppError::NotFound(format!(
-                "Milestone #{} not found",
-                milestone_number
-            )));
-        }
-        storage::write_milestones(&path, &milestones)?;
-        storage::commit_and_push(
-            &path,
-            &format!("Delete milestone #{}", milestone_number),
-            &user.login,
-            &author_email(&user.login),
-            &token,
-        )?;
-        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?

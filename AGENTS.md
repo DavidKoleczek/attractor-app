@@ -1,4 +1,4 @@
-Attractor App is an app aimed at code-free creation of complex apps such as the complexity of Microsoft Word.
+Attractor App is an app aimed at code-free creation of complex apps such as at the complexity of Microsoft Word.
 
 # General Instructions
 

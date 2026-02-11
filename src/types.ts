@@ -16,20 +16,6 @@ export interface Label {
   default: boolean;
 }
 
-export interface Milestone {
-  id: number;
-  number: number;
-  title: string;
-  description: string | null;
-  state: string;
-  open_issues: number;
-  closed_issues: number;
-  created_at: string;
-  updated_at: string;
-  closed_at: string | null;
-  due_on: string | null;
-}
-
 export interface Issue {
   id: number;
   number: number;
@@ -37,11 +23,8 @@ export interface Issue {
   body: string | null;
   state: string;
   state_reason: string | null;
-  locked: boolean;
-  lock_reason: string | null;
   labels: Label[];
   assignees: SimpleUser[];
-  milestone: Milestone | null;
   comments: number;
   created_at: string;
   updated_at: string;
@@ -81,7 +64,6 @@ export interface ListResponse<T> {
 export interface Meta {
   next_issue_id: number;
   next_comment_id: number;
-  next_milestone_id: number;
 }
 
 export interface AttractorConfig {

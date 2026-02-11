@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "@/api";
-import type { Issue, Comment, Label, Milestone, AmplifierSessionInfo } from "@/types";
+import type { Issue, Comment, Label, AmplifierSessionInfo } from "@/types";
 import { LabelBadge } from "@/components/LabelBadge";
+import { CreateLabelForm } from "@/components/CreateLabelForm";
 import { TimeAgo } from "@/components/TimeAgo";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
@@ -14,13 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -28,29 +22,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label as FormLabel } from "@/components/ui/label";
+
 import {
   ArrowLeft,
   Check,
   CircleDot,
   Edit2,
   Loader2,
-  Lock,
   MessageSquare,
   MoreHorizontal,
-  Play,
   Square,
+  Plus,
   Tag,
   Trash2,
-  Unlock,
   X,
   Zap,
 } from "lucide-react";
@@ -96,13 +80,8 @@ export function IssueDetail() {
 
   // ── Labels sidebar ─────────────────────────────────────────────────
   const [allLabels, setAllLabels] = useState<Label[]>([]);
-  const [allMilestones, setAllMilestones] = useState<Milestone[]>([]);
   const [labelsOpen, setLabelsOpen] = useState(false);
-
-  // ── Lock dialog ────────────────────────────────────────────────────
-  const [lockDialogOpen, setLockDialogOpen] = useState(false);
-  const [lockReason, setLockReason] = useState("");
-  const [locking, setLocking] = useState(false);
+  const [creatingLabel, setCreatingLabel] = useState(false);
 
   // ── Amplifier session ─────────────────────────────────────
   const [amplifierSession, setAmplifierSession] =
@@ -153,7 +132,6 @@ export function IssueDetail() {
   // Fetch sidebar data
   useEffect(() => {
     api.listLabels(owner, repo).then(setAllLabels).catch(() => {});
-    api.listMilestones(owner, repo).then(setAllMilestones).catch(() => {});
   }, [owner, repo]);
 
   // Fetch Amplifier session status on mount
@@ -327,49 +305,11 @@ export function IssueDetail() {
     }
   };
 
-  const handleMilestoneChange = async (value: string) => {
-    if (!issue) return;
-    try {
-      const milestoneNum = value === "__none__" ? undefined : Number(value);
-      // To clear milestone, we update with milestone: 0 or similar
-      // The backend should handle undefined or 0 to clear
-      const updated = await api.updateIssue(owner, repo, issueNumber, {
-        milestone: milestoneNum,
-      });
-      setIssue(updated);
-    } catch {
-      // Silent fail
-    }
-  };
-
-  const handleLock = async () => {
-    setLocking(true);
-    try {
-      await api.lockIssue(
-        owner,
-        repo,
-        issueNumber,
-        lockReason || undefined,
-      );
-      const updated = await api.getIssue(owner, repo, issueNumber);
-      setIssue(updated);
-      setLockDialogOpen(false);
-      setLockReason("");
-    } catch {
-      // Silent fail
-    } finally {
-      setLocking(false);
-    }
-  };
-
-  const handleUnlock = async () => {
-    try {
-      await api.unlockIssue(owner, repo, issueNumber);
-      const updated = await api.getIssue(owner, repo, issueNumber);
-      setIssue(updated);
-    } catch {
-      // Silent fail
-    }
+  const handleCreateLabel = async (name: string, color: string, description?: string) => {
+    await api.createLabel(owner, repo, name, color, description);
+    const labels = await api.listLabels(owner, repo);
+    setAllLabels(labels);
+    setCreatingLabel(false);
   };
 
   // ── Amplifier handlers ─────────────────────────────────────
@@ -513,13 +453,6 @@ export function IssueDetail() {
             {issue.comments} comment{issue.comments !== 1 ? "s" : ""}
           </span>
 
-          {issue.locked && (
-            <Badge variant="outline" className="text-xs">
-              <Lock className="mr-1 size-3" />
-              Locked
-              {issue.lock_reason && `: ${issue.lock_reason}`}
-            </Badge>
-          )}
         </div>
       </div>
 
@@ -668,22 +601,16 @@ export function IssueDetail() {
           <Separator className="my-6" />
           <form onSubmit={handleSubmitComment} className="space-y-3">
             <Textarea
-              placeholder={
-                issue.locked
-                  ? "This issue is locked."
-                  : "Leave a comment..."
-              }
+              placeholder="Leave a comment..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               rows={4}
-              disabled={submittingComment || issue.locked}
+              disabled={submittingComment}
             />
             <div className="flex items-center gap-2">
               <Button
                 type="submit"
-                disabled={
-                  submittingComment || !newComment.trim() || issue.locked
-                }
+                disabled={submittingComment || !newComment.trim()}
               >
                 {submittingComment ? (
                   <LoadingSpinner size={16} label="Posting..." />
@@ -754,8 +681,26 @@ export function IssueDetail() {
                     {label.name}
                   </DropdownMenuCheckboxItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setLabelsOpen(false);
+                    setCreatingLabel(true);
+                  }}
+                >
+                  <Plus className="mr-2 size-3.5" />
+                  Create new label
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {creatingLabel && (
+              <div className="mt-2">
+                <CreateLabelForm
+                  onSubmit={handleCreateLabel}
+                  onCancel={() => setCreatingLabel(false)}
+                />
+              </div>
+            )}
             {issue.labels.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1">
                 {issue.labels.map((label) => (
@@ -763,9 +708,11 @@ export function IssueDetail() {
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-xs text-muted-foreground">
-                None yet
-              </p>
+              !creatingLabel && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  None yet
+                </p>
+              )
             )}
           </SidebarSection>
 
@@ -795,91 +742,6 @@ export function IssueDetail() {
               <p className="text-xs text-muted-foreground">
                 No one assigned
               </p>
-            )}
-          </SidebarSection>
-
-          {/* Milestone */}
-          <SidebarSection title="Milestone">
-            <Select
-              value={
-                issue.milestone
-                  ? String(issue.milestone.number)
-                  : "__none__"
-              }
-              onValueChange={handleMilestoneChange}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="No milestone" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No milestone</SelectItem>
-                {allMilestones.map((ms) => (
-                  <SelectItem key={ms.id} value={String(ms.number)}>
-                    {ms.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {issue.milestone && (
-              <div className="mt-2">
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{issue.milestone.title}</span>
-                  <span>
-                    {issue.milestone.open_issues +
-                      issue.milestone.closed_issues >
-                    0
-                      ? `${Math.round(
-                          (issue.milestone.closed_issues /
-                            (issue.milestone.open_issues +
-                              issue.milestone.closed_issues)) *
-                            100,
-                        )}%`
-                      : "0%"}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div
-                    className="h-1.5 rounded-full bg-green-600 transition-all"
-                    style={{
-                      width: `${
-                        issue.milestone.open_issues +
-                          issue.milestone.closed_issues >
-                        0
-                          ? (issue.milestone.closed_issues /
-                              (issue.milestone.open_issues +
-                                issue.milestone.closed_issues)) *
-                            100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </SidebarSection>
-
-          {/* Lock */}
-          <SidebarSection title="Lock">
-            {issue.locked ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={handleUnlock}
-              >
-                <Unlock className="mr-1.5 size-3.5" />
-                Unlock issue
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => setLockDialogOpen(true)}
-              >
-                <Lock className="mr-1.5 size-3.5" />
-                Lock issue
-              </Button>
             )}
           </SidebarSection>
 
@@ -942,51 +804,6 @@ export function IssueDetail() {
         </aside>
       </div>
 
-      {/* Lock dialog */}
-      <Dialog open={lockDialogOpen} onOpenChange={setLockDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Lock issue</DialogTitle>
-            <DialogDescription>
-              Locking limits conversation to collaborators.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-2 space-y-3">
-            <div className="space-y-2">
-              <FormLabel htmlFor="lock-reason">
-                Reason (optional)
-              </FormLabel>
-              <Select value={lockReason} onValueChange={setLockReason}>
-                <SelectTrigger id="lock-reason">
-                  <SelectValue placeholder="Choose a reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="off-topic">Off-topic</SelectItem>
-                  <SelectItem value="too heated">Too heated</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="spam">Spam</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setLockDialogOpen(false)}
-              disabled={locking}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleLock} disabled={locking}>
-              {locking ? (
-                <LoadingSpinner size={14} label="Locking..." />
-              ) : (
-                "Lock issue"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

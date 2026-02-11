@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   SimpleUser,
   Label,
-  Milestone,
   Issue,
   Comment,
   RepoInfo,
@@ -73,7 +72,6 @@ export const api = {
       state?: string;
       labels?: string;
       assignee?: string;
-      milestone?: string;
       sort?: string;
       direction?: string;
       page?: number;
@@ -94,7 +92,6 @@ export const api = {
       body?: string;
       assignees?: string[];
       labels?: string[];
-      milestone?: number;
     },
   ) =>
     invoke<Issue>("create_issue", {
@@ -117,7 +114,6 @@ export const api = {
       stateReason?: string;
       assignees?: string[];
       labels?: string[];
-      milestone?: number;
     },
   ) =>
     invoke<Issue>("update_issue", {
@@ -126,16 +122,6 @@ export const api = {
       issueNumber,
       ...data,
     }),
-
-  lockIssue: (
-    owner: string,
-    repo: string,
-    issueNumber: number,
-    lockReason?: string,
-  ) => invoke<void>("lock_issue", { owner, repo, issueNumber, lockReason }),
-
-  unlockIssue: (owner: string, repo: string, issueNumber: number) =>
-    invoke<void>("unlock_issue", { owner, repo, issueNumber }),
 
   // ── Comments ─────────────────────────────────────────────────────────
   listComments: (
@@ -228,54 +214,6 @@ export const api = {
       issueNumber,
       name,
     }),
-
-  // ── Milestones ───────────────────────────────────────────────────────
-  listMilestones: (
-    owner: string,
-    repo: string,
-    params?: {
-      state?: string;
-      sort?: string;
-      direction?: string;
-      page?: number;
-      perPage?: number;
-    },
-  ) => invoke<Milestone[]>("list_milestones", { owner, repo, ...params }),
-
-  createMilestone: (
-    owner: string,
-    repo: string,
-    data: {
-      title: string;
-      description?: string;
-      dueOn?: string;
-      state?: string;
-    },
-  ) => invoke<Milestone>("create_milestone", { owner, repo, ...data }),
-
-  getMilestone: (owner: string, repo: string, milestoneNumber: number) =>
-    invoke<Milestone>("get_milestone", { owner, repo, milestoneNumber }),
-
-  updateMilestone: (
-    owner: string,
-    repo: string,
-    milestoneNumber: number,
-    data: {
-      title?: string;
-      description?: string;
-      dueOn?: string;
-      milestoneState?: string;
-    },
-  ) =>
-    invoke<Milestone>("update_milestone", {
-      owner,
-      repo,
-      milestoneNumber,
-      ...data,
-    }),
-
-  deleteMilestone: (owner: string, repo: string, milestoneNumber: number) =>
-    invoke<void>("delete_milestone", { owner, repo, milestoneNumber }),
 
   // -- Amplifier --------------------------------------------------------
   amplifierRun: (owner: string, repo: string, issueNumber: number) =>

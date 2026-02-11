@@ -9,7 +9,7 @@ Attractor App is an app aimed at code-free creation of complex apps.
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Tauri v2 system dependencies -- see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 - A GitHub account
-- [Amplifier CLI](https://github.com/microsoft/amplifier) (optional, for AI-assisted issue resolution)
+- [Amplifier CLI](https://github.com/microsoft/amplifier)
 
 ## Getting Started
 
@@ -97,3 +97,14 @@ Multiple issues can have concurrent Amplifier sessions. Session state is in-memo
 - [src/pages/ProjectPicker.tsx](src/pages/ProjectPicker.tsx) -- Project Picker screen
 - [src/pages/IssuesView.tsx](src/pages/IssuesView.tsx) -- Issues View screen
 - [src/pages/IssueDetail.tsx](src/pages/IssueDetail.tsx) -- Issue Detail screen (includes Amplifier session UI)
+
+# TODOs
+
+- Testing/Validation that can be done in a container and easily torn up and down to create many things. Current challenge is we need a GitHub repo each time.
+- Integrate an actual implementation of Attractor to improve software creaton capabilities.
+- Figure out UX
+  - Initial project state. Right now you need to make an issue. Ideally, you would provide something like a spec
+  - When you create an issue Amplifier immediately starts working on it and ends in one of a few (loosely defined) states (follow-up, delegate to implementing, etc). We give it the Issues API so its flexible
+  - Push back a way to UX a way to run the app. For example, Amplifier outputs a structured command that gets parsed.
+- Other issues to figure out:
+  - Dealing with concurrency, multiple issues, multiple comments, etc.

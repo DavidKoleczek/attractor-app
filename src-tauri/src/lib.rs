@@ -48,8 +48,6 @@ pub fn run() {
             commands::create_issue,
             commands::get_issue,
             commands::update_issue,
-            commands::lock_issue,
-            commands::unlock_issue,
             // Comments
             commands::list_comments,
             commands::create_comment,
@@ -67,12 +65,6 @@ pub fn run() {
             commands::set_issue_labels,
             commands::remove_all_issue_labels,
             commands::remove_issue_label,
-            // Milestones
-            commands::list_milestones,
-            commands::create_milestone,
-            commands::get_milestone,
-            commands::update_milestone,
-            commands::delete_milestone,
             // Amplifier
             commands::amplifier_run,
             commands::amplifier_status,

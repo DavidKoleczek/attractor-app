@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api";
-import type { Issue, Label, Milestone } from "@/types";
+import type { Issue, Label } from "@/types";
 import { LabelBadge } from "@/components/LabelBadge";
+import { CreateLabelForm } from "@/components/CreateLabelForm";
 import { TimeAgo } from "@/components/TimeAgo";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
@@ -31,6 +32,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label as FormLabel } from "@/components/ui/label";
@@ -76,22 +79,20 @@ export function IssuesView() {
   // ── Filters ────────────────────────────────────────────────────────
   const [stateFilter, setStateFilter] = useState<StateFilter>("open");
   const [labelFilter, setLabelFilter] = useState<string>("");
-  const [milestoneFilter, setMilestoneFilter] = useState<string>("");
   const [sort, setSort] = useState<SortField>("created");
   const [direction, setDirection] = useState<SortDirection>("desc");
 
-  // ── Sidebar data (labels & milestones for filters) ─────────────────
+  // ── Sidebar data (labels for filters) ─────────────────
   const [allLabels, setAllLabels] = useState<Label[]>([]);
-  const [allMilestones, setAllMilestones] = useState<Milestone[]>([]);
 
   // ── New issue dialog ───────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
   const [newLabels, setNewLabels] = useState<string[]>([]);
-  const [newMilestone, setNewMilestone] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [creatingLabel, setCreatingLabel] = useState(false);
 
   if (!owner || !repo) return null;
 
@@ -108,7 +109,6 @@ export function IssuesView() {
         perPage: PER_PAGE,
       };
       if (labelFilter) params.labels = labelFilter;
-      if (milestoneFilter) params.milestone = milestoneFilter;
 
       const res = await api.listIssues(owner, repo, params);
       setIssues(res.items);
@@ -118,12 +118,11 @@ export function IssuesView() {
     } finally {
       setLoading(false);
     }
-  }, [owner, repo, stateFilter, labelFilter, milestoneFilter, sort, direction, page]);
+  }, [owner, repo, stateFilter, labelFilter, sort, direction, page]);
 
-  // ── Fetch labels & milestones for filter dropdowns ─────────────────
+  // ── Fetch labels for filter dropdowns ─────────────────
   useEffect(() => {
     api.listLabels(owner, repo).then(setAllLabels).catch(() => {});
-    api.listMilestones(owner, repo).then(setAllMilestones).catch(() => {});
   }, [owner, repo]);
 
   useEffect(() => {
@@ -133,7 +132,7 @@ export function IssuesView() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [stateFilter, labelFilter, milestoneFilter, sort, direction]);
+  }, [stateFilter, labelFilter, sort, direction]);
 
   // ── Create issue ───────────────────────────────────────────────────
   const handleCreate = async (e: React.FormEvent) => {
@@ -147,18 +146,16 @@ export function IssuesView() {
         title: string;
         body?: string;
         labels?: string[];
-        milestone?: number;
       } = { title: newTitle.trim() };
       if (newBody.trim()) data.body = newBody.trim();
       if (newLabels.length > 0) data.labels = newLabels;
-      if (newMilestone) data.milestone = Number(newMilestone);
 
       await api.createIssue(owner, repo, data);
       setCreateOpen(false);
       setNewTitle("");
       setNewBody("");
       setNewLabels([]);
-      setNewMilestone("");
+      setCreatingLabel(false);
       fetchIssues();
     } catch (err) {
       setCreateError(typeof err === "string" ? err : "Failed to create issue");
@@ -171,6 +168,13 @@ export function IssuesView() {
     setNewLabels((prev) =>
       prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name],
     );
+  };
+
+  const handleCreateLabel = async (name: string, color: string, description?: string) => {
+    await api.createLabel(owner, repo, name, color, description);
+    const labels = await api.listLabels(owner, repo);
+    setAllLabels(labels);
+    setCreatingLabel(false);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
@@ -268,8 +272,7 @@ export function IssuesView() {
                 </div>
 
                 {/* Label picker */}
-                {allLabels.length > 0 && (
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     <FormLabel>Labels</FormLabel>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -300,8 +303,21 @@ export function IssuesView() {
                             {label.name}
                           </DropdownMenuCheckboxItem>
                         ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => setCreatingLabel(true)}
+                        >
+                          <Plus className="mr-2 size-3.5" />
+                          Create new label
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {creatingLabel && (
+                      <CreateLabelForm
+                        onSubmit={handleCreateLabel}
+                        onCancel={() => setCreatingLabel(false)}
+                      />
+                    )}
                     {newLabels.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {newLabels.map((name) => {
@@ -320,33 +336,6 @@ export function IssuesView() {
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* Milestone picker */}
-                {allMilestones.length > 0 && (
-                  <div className="space-y-2">
-                    <FormLabel>Milestone</FormLabel>
-                    <Select
-                      value={newMilestone}
-                      onValueChange={setNewMilestone}
-                      disabled={creating}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select milestone" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allMilestones.map((ms) => (
-                          <SelectItem
-                            key={ms.id}
-                            value={String(ms.number)}
-                          >
-                            {ms.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
 
                 {createError && (
                   <p className="text-sm text-destructive">{createError}</p>
@@ -429,28 +418,6 @@ export function IssuesView() {
             ))}
           </SelectContent>
         </Select>
-
-        {/* Milestone filter */}
-        {allMilestones.length > 0 && (
-          <Select
-            value={milestoneFilter}
-            onValueChange={(v) =>
-              setMilestoneFilter(v === "__all__" ? "" : v)
-            }
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Milestone" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All milestones</SelectItem>
-              {allMilestones.map((ms) => (
-                <SelectItem key={ms.id} value={String(ms.number)}>
-                  {ms.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         {/* Sort */}
         <Select
@@ -621,11 +588,6 @@ function IssueRow({
             opened <TimeAgo date={issue.created_at} className="text-xs" /> by{" "}
             {issue.user.login}
           </span>
-          {issue.milestone && (
-            <Badge variant="outline" className="text-xs font-normal">
-              {issue.milestone.title}
-            </Badge>
-          )}
         </div>
       </div>
 

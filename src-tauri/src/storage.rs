@@ -114,11 +114,6 @@ pub fn init_repo_structure(repo_path: &Path) -> Result<(), AppError> {
         fs::write(&labels_path, "[]")?;
     }
 
-    let milestones_path = base.join("milestones.json");
-    if !milestones_path.exists() {
-        fs::write(&milestones_path, "[]")?;
-    }
-
     let meta_path = base.join("meta.json");
     if !meta_path.exists() {
         let meta = Meta::default();
@@ -307,21 +302,6 @@ pub fn list_issues(
         }
     }
 
-    // Filter by milestone
-    if let Some(ref ms) = filters.milestone {
-        if ms == "none" {
-            issues.retain(|i| i.milestone.is_none());
-        } else if ms == "*" {
-            issues.retain(|i| i.milestone.is_some());
-        } else if let Ok(number) = ms.parse::<u64>() {
-            issues.retain(|i| {
-                i.milestone
-                    .as_ref()
-                    .map_or(false, |m| m.number == number)
-            });
-        }
-    }
-
     // Sort
     let sort_field = filters.sort.as_deref().unwrap_or("created");
     let direction = filters.direction.as_deref().unwrap_or("desc");
@@ -488,25 +468,6 @@ pub fn read_labels(repo_path: &Path) -> Result<Vec<Label>, AppError> {
 pub fn write_labels(repo_path: &Path, labels: &[Label]) -> Result<(), AppError> {
     let file = attractor_dir(repo_path).join("labels.json");
     fs::write(&file, serde_json::to_string_pretty(labels)?)?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Milestone operations
-// ---------------------------------------------------------------------------
-
-pub fn read_milestones(repo_path: &Path) -> Result<Vec<Milestone>, AppError> {
-    let file = attractor_dir(repo_path).join("milestones.json");
-    if !file.exists() {
-        return Ok(Vec::new());
-    }
-    let content = fs::read_to_string(&file)?;
-    Ok(serde_json::from_str(&content)?)
-}
-
-pub fn write_milestones(repo_path: &Path, milestones: &[Milestone]) -> Result<(), AppError> {
-    let file = attractor_dir(repo_path).join("milestones.json");
-    fs::write(&file, serde_json::to_string_pretty(milestones)?)?;
     Ok(())
 }
 

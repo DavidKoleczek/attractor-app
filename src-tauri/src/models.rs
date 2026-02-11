@@ -23,21 +23,6 @@ pub struct Label {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Milestone {
-    pub id: u64,
-    pub number: u64,
-    pub title: String,
-    pub description: Option<String>,
-    pub state: String,
-    pub open_issues: u64,
-    pub closed_issues: u64,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub closed_at: Option<DateTime<Utc>>,
-    pub due_on: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Issue {
     pub id: u64,
     pub number: u64,
@@ -45,11 +30,8 @@ pub struct Issue {
     pub body: Option<String>,
     pub state: String,
     pub state_reason: Option<String>,
-    pub locked: bool,
-    pub lock_reason: Option<String>,
     pub labels: Vec<Label>,
     pub assignees: Vec<SimpleUser>,
-    pub milestone: Option<Milestone>,
     pub comments: u64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -75,7 +57,6 @@ pub struct Comment {
 pub struct Meta {
     pub next_issue_id: u64,
     pub next_comment_id: u64,
-    pub next_milestone_id: u64,
 }
 
 impl Default for Meta {
@@ -83,7 +64,6 @@ impl Default for Meta {
         Self {
             next_issue_id: 1,
             next_comment_id: 1,
-            next_milestone_id: 1,
         }
     }
 }
@@ -119,7 +99,6 @@ pub struct IssueFilters {
     pub state: Option<String>,
     pub labels: Option<Vec<String>>,
     pub assignee: Option<String>,
-    pub milestone: Option<String>,
     pub sort: Option<String>,
     pub direction: Option<String>,
     pub page: Option<u32>,
