@@ -8,6 +8,7 @@ import type {
   RepoInfo,
   RecentProject,
   ListResponse,
+  AmplifierSessionInfo,
 } from "@/types";
 
 // Tauri invoke automatically converts camelCase JS param keys to snake_case for Rust.
@@ -29,8 +30,8 @@ export const api = {
   createProject: (name: string, description: string, isPrivate: boolean = true) =>
     invoke<RepoInfo>("create_project", { name, description, private: isPrivate }),
 
-  selectProject: (owner: string, repo: string) =>
-    invoke<void>("select_project", { owner, repo }),
+  selectProject: (owner: string, repo: string, localPath: string) =>
+    invoke<void>("select_project", { owner, repo, localPath }),
 
   // ── New Project flows ─────────────────────────────────────────────────
   listRecentProjects: () =>
@@ -275,4 +276,25 @@ export const api = {
 
   deleteMilestone: (owner: string, repo: string, milestoneNumber: number) =>
     invoke<void>("delete_milestone", { owner, repo, milestoneNumber }),
+
+  // -- Amplifier --------------------------------------------------------
+  amplifierRun: (owner: string, repo: string, issueNumber: number) =>
+    invoke<void>("amplifier_run", { owner, repo, issueNumber }),
+
+  amplifierStatus: (owner: string, repo: string, issueNumber: number) =>
+    invoke<AmplifierSessionInfo | null>("amplifier_status", {
+      owner,
+      repo,
+      issueNumber,
+    }),
+
+  amplifierCancel: (owner: string, repo: string, issueNumber: number) =>
+    invoke<void>("amplifier_cancel", { owner, repo, issueNumber }),
+
+  // -- Shell openers -------------------------------------------------------
+  openInExplorer: (path: string) =>
+    invoke<void>("open_in_explorer", { path }),
+
+  openInVscode: (path: string) =>
+    invoke<void>("open_in_vscode", { path }),
 };

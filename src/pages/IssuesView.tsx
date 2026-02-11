@@ -42,7 +42,9 @@ import {
   Check,
   Circle,
   CircleDot,
+  Code2,
   ExternalLink,
+  FolderOpen,
   MessageSquare,
   Plus,
   Tag,
@@ -191,9 +193,27 @@ export function IssuesView() {
               {projectName}
             </h1>
             {localPath && (
-              <p className="text-xs text-muted-foreground truncate max-w-md">
-                {localPath}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground truncate max-w-md">
+                  {localPath}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => api.openInExplorer(localPath)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Open in file explorer"
+                >
+                  <FolderOpen className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => api.openInVscode(localPath)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Open in VS Code"
+                >
+                  <Code2 className="size-3" />
+                </button>
+              </div>
             )}
             {owner && repo && (
               <button
@@ -498,6 +518,7 @@ export function IssuesView() {
                 onClick={() =>
                   navigate(
                     `/project/${owner}/${repo}/issues/${issue.number}`,
+                    { state: { projectName, localPath } },
                   )
                 }
               />

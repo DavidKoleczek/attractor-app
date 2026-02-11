@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "@/api";
-import type { Issue, Comment, Label, Milestone } from "@/types";
+import type { Issue, Comment, Label, Milestone, AmplifierSessionInfo } from "@/types";
 import { LabelBadge } from "@/components/LabelBadge";
 import { TimeAgo } from "@/components/TimeAgo";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -41,19 +42,25 @@ import {
   Check,
   CircleDot,
   Edit2,
+  Loader2,
   Lock,
   MessageSquare,
   MoreHorizontal,
+  Play,
+  Square,
   Tag,
   Trash2,
   Unlock,
   X,
+  Zap,
 } from "lucide-react";
 
 export function IssueDetail() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { owner, repo, issueNumber: issueNumStr } =
     useParams<{ owner: string; repo: string; issueNumber: string }>();
+  const routerState = location.state as { projectName?: string; localPath?: string } | null;
 
   const issueNumber = Number(issueNumStr);
 
@@ -96,6 +103,11 @@ export function IssueDetail() {
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [lockReason, setLockReason] = useState("");
   const [locking, setLocking] = useState(false);
+
+  // ── Amplifier session ─────────────────────────────────────
+  const [amplifierSession, setAmplifierSession] =
+    useState<AmplifierSessionInfo | null>(null);
+  const [amplifierLoading, setAmplifierLoading] = useState(false);
 
   if (!owner || !repo || !issueNumber) return null;
 
@@ -143,6 +155,56 @@ export function IssueDetail() {
     api.listLabels(owner, repo).then(setAllLabels).catch(() => {});
     api.listMilestones(owner, repo).then(setAllMilestones).catch(() => {});
   }, [owner, repo]);
+
+  // Fetch Amplifier session status on mount
+  useEffect(() => {
+    api
+      .amplifierStatus(owner, repo, issueNumber)
+      .then(setAmplifierSession)
+      .catch(() => {});
+  }, [owner, repo, issueNumber]);
+
+  // Listen for Amplifier session events
+  useEffect(() => {
+    const listeners = [
+      listen<{ issueNumber: number; commentId?: number }>(
+        "amplifier:completed",
+        (event) => {
+          if (event.payload.issueNumber === issueNumber) {
+            api
+              .amplifierStatus(owner, repo, issueNumber)
+              .then(setAmplifierSession)
+              .catch(() => {});
+            fetchComments();
+          }
+        },
+      ),
+      listen<{ issueNumber: number; error?: string }>(
+        "amplifier:failed",
+        (event) => {
+          if (event.payload.issueNumber === issueNumber) {
+            api
+              .amplifierStatus(owner, repo, issueNumber)
+              .then(setAmplifierSession)
+              .catch(() => {});
+            fetchComments();
+          }
+        },
+      ),
+      listen<{ issueNumber: number }>("amplifier:started", (event) => {
+        if (event.payload.issueNumber === issueNumber) {
+          api
+            .amplifierStatus(owner, repo, issueNumber)
+            .then(setAmplifierSession)
+            .catch(() => {});
+        }
+      }),
+    ];
+
+    return () => {
+      listeners.forEach((p) => p.then((unlisten) => unlisten()));
+    };
+  }, [owner, repo, issueNumber, fetchComments]);
 
   // ── Handlers ───────────────────────────────────────────────────────
 
@@ -310,6 +372,30 @@ export function IssueDetail() {
     }
   };
 
+  // ── Amplifier handlers ─────────────────────────────────────
+
+  const handleAmplifierRun = async () => {
+    setAmplifierLoading(true);
+    try {
+      await api.amplifierRun(owner, repo, issueNumber);
+      // Status will update via the amplifier:started event listener
+    } catch (err) {
+      console.error("Failed to start Amplifier session:", err);
+    } finally {
+      setAmplifierLoading(false);
+    }
+  };
+
+  const handleAmplifierCancel = async () => {
+    try {
+      await api.amplifierCancel(owner, repo, issueNumber);
+      const updated = await api.amplifierStatus(owner, repo, issueNumber);
+      setAmplifierSession(updated);
+    } catch (err) {
+      console.error("Failed to cancel Amplifier session:", err);
+    }
+  };
+
   const commentPages = Math.max(1, Math.ceil(commentTotalCount / 50));
 
   // ── Loading / Error ────────────────────────────────────────────────
@@ -328,7 +414,7 @@ export function IssueDetail() {
           title="Failed to load issue"
           description={error ?? "Issue not found"}
           actionLabel="Go Back"
-          onAction={() => navigate(`/project/${owner}/${repo}`)}
+          onAction={() => navigate(`/project/${owner}/${repo}`, { state: routerState })}
         />
       </div>
     );
@@ -344,7 +430,7 @@ export function IssueDetail() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(`/project/${owner}/${repo}`)}
+          onClick={() => navigate(`/project/${owner}/${repo}`, { state: routerState })}
         >
           <ArrowLeft className="size-5" />
         </Button>
@@ -794,6 +880,63 @@ export function IssueDetail() {
                 <Lock className="mr-1.5 size-3.5" />
                 Lock issue
               </Button>
+            )}
+          </SidebarSection>
+
+          {/* Amplifier */}
+          <SidebarSection title="Amplifier">
+            {amplifierSession?.status === "running" ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>Session running...</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={handleAmplifierCancel}
+                >
+                  <Square className="mr-1.5 size-3.5" />
+                  Cancel session
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {amplifierSession?.status === "completed" && (
+                  <div className="flex items-center gap-2 text-xs text-green-600">
+                    <Check className="size-3.5" />
+                    <span>Session completed</span>
+                  </div>
+                )}
+                {amplifierSession?.status === "failed" && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-red-600">
+                      <X className="size-3.5" />
+                      <span>Session failed</span>
+                    </div>
+                    {amplifierSession.error && (
+                      <p className="text-xs text-muted-foreground truncate" title={amplifierSession.error}>
+                        {amplifierSession.error}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  disabled={amplifierLoading}
+                  onClick={handleAmplifierRun}
+                >
+                  {amplifierLoading ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="mr-1.5 size-3.5" />
+                  )}
+                  {amplifierSession ? "Run again" : "Run Amplifier"}
+                </Button>
+              </div>
             )}
           </SidebarSection>
         </aside>

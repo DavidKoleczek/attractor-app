@@ -1,3 +1,4 @@
+mod amplifier;
 mod commands;
 mod error;
 mod github;
@@ -5,6 +6,7 @@ mod models;
 mod state;
 mod storage;
 
+use amplifier::AmplifierManager;
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,12 +18,14 @@ pub fn run() {
     std::fs::create_dir_all(&repos_dir).expect("Could not create repos directory");
 
     let app_state = AppState::new(repos_dir);
+    let amplifier_manager = AmplifierManager::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
+        .manage(amplifier_manager)
         .invoke_handler(tauri::generate_handler![
             // Auth
             commands::set_token,
@@ -69,6 +73,13 @@ pub fn run() {
             commands::get_milestone,
             commands::update_milestone,
             commands::delete_milestone,
+            // Amplifier
+            commands::amplifier_run,
+            commands::amplifier_status,
+            commands::amplifier_cancel,
+            // Shell openers
+            commands::open_in_explorer,
+            commands::open_in_vscode,
         ])
         .setup(|app| {
             // Restore persisted token on startup

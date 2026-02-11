@@ -2,6 +2,7 @@ use chrono::Utc;
 use tauri::State;
 use uuid::Uuid;
 
+use crate::amplifier::{self, AmplifierManager, AmplifierSessionInfo};
 use crate::error::AppError;
 use crate::github;
 use crate::models::*;
@@ -14,6 +15,12 @@ const STORE_PREFIX: &str = "attractor-store-";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn is_wsl() -> bool {
+    std::fs::read_to_string("/proc/version")
+        .map(|v| v.to_lowercase().contains("microsoft"))
+        .unwrap_or(false)
+}
 
 fn require_token(state: &AppState) -> Result<String, String> {
     state
@@ -207,6 +214,7 @@ pub async fn select_project(
     app_state: State<'_, AppState>,
     owner: String,
     repo: String,
+    local_path: String,
 ) -> Result<(), String> {
     let token = require_token(&app_state)?;
     let path = repo_path(&app_state, &owner, &repo);
@@ -248,6 +256,13 @@ pub async fn select_project(
             .write()
             .map_err(|e| format!("Lock error: {}", e))?;
         *guard = Some(info);
+    }
+    {
+        let mut guard = app_state
+            .current_project_path
+            .write()
+            .map_err(|e| format!("Lock error: {}", e))?;
+        *guard = Some(local_path);
     }
 
     Ok(())
@@ -1925,4 +1940,127 @@ pub async fn delete_milestone(
     .await
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
+}
+
+// ===================================================================
+//  Amplifier commands
+// ===================================================================
+
+#[tauri::command]
+pub async fn amplifier_run(
+    app: tauri::AppHandle,
+    app_state: State<'_, AppState>,
+    manager: State<'_, AmplifierManager>,
+    owner: String,
+    repo: String,
+    issue_number: u64,
+) -> Result<(), String> {
+    let token = require_token(&app_state)?;
+    let user = require_user(&app_state)?;
+    let store_repo_path = repo_path(&app_state, &owner, &repo);
+
+    let project_path = app_state
+        .current_project_path
+        .read()
+        .map_err(|e| format!("Lock error: {}", e))?
+        .clone()
+        .ok_or_else(|| "No project currently selected".to_string())?;
+
+    let issue = storage::read_issue(&store_repo_path, issue_number)
+        .map_err(|e| e.to_string())?;
+
+    amplifier::spawn_session(
+        app,
+        manager,
+        store_repo_path,
+        token,
+        user.login,
+        owner,
+        repo,
+        issue,
+        project_path,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn amplifier_status(
+    manager: State<'_, AmplifierManager>,
+    owner: String,
+    repo: String,
+    issue_number: u64,
+) -> Result<Option<AmplifierSessionInfo>, String> {
+    let key = amplifier::session_key(&owner, &repo, issue_number);
+    let sessions = manager.sessions.read().await;
+    Ok(sessions.get(&key).map(AmplifierSessionInfo::from))
+}
+
+#[tauri::command]
+pub async fn amplifier_cancel(
+    manager: State<'_, AmplifierManager>,
+    owner: String,
+    repo: String,
+    issue_number: u64,
+) -> Result<(), String> {
+    let key = amplifier::session_key(&owner, &repo, issue_number);
+    let sessions = manager.sessions.read().await;
+    if let Some(session) = sessions.get(&key) {
+        if let Some(pid) = session.child_id {
+            // Send SIGTERM on Unix
+            #[cfg(unix)]
+            {
+                unsafe {
+                    libc::kill(pid as i32, libc::SIGTERM);
+                }
+            }
+            // On Windows, use taskkill
+            #[cfg(windows)]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/T", "/F"])
+                    .spawn();
+            }
+            return Ok(());
+        }
+        return Err("Session has no active process".to_string());
+    }
+    Err(format!("No session found for issue #{}", issue_number))
+}
+
+// ---------------------------------------------------------------------------
+// Shell openers (WSL-aware)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn open_in_explorer(path: String) -> Result<(), String> {
+    if is_wsl() {
+        let output = std::process::Command::new("wslpath")
+            .arg("-w")
+            .arg(&path)
+            .output()
+            .map_err(|e| format!("wslpath failed: {e}"))?;
+        if !output.status.success() {
+            return Err("Failed to convert WSL path to Windows path".to_string());
+        }
+        let win_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        std::process::Command::new("explorer.exe")
+            .arg(&win_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open explorer: {e}"))?;
+    } else {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file manager: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_in_vscode(path: String) -> Result<(), String> {
+    std::process::Command::new("code")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("Failed to open VS Code: {e}"))?;
+    Ok(())
 }

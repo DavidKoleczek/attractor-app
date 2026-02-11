@@ -34,14 +34,16 @@ export function AuthGate({ children }: AuthGateProps) {
     let cancelled = false;
     api
       .getToken()
-      .then((saved) => {
-        if (cancelled) return;
-        if (saved) {
-          setAuthenticated(true);
-        }
+      .then(async (saved) => {
+        if (cancelled || !saved) return;
+        // Re-validate the token and populate the user in AppState.
+        // Without this, the token string is restored but AppState.user
+        // stays None, causing every command to fail.
+        await api.setToken(saved);
+        if (!cancelled) setAuthenticated(true);
       })
       .catch(() => {
-        // No token saved — stay on auth screen
+        // Token missing or expired/revoked — stay on auth screen
       })
       .finally(() => {
         if (!cancelled) setChecking(false);

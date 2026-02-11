@@ -1,5 +1,6 @@
 # Project Specific
 ai_working/
+specs/
 
 # Dependencies
 node_modules

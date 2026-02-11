@@ -102,3 +102,12 @@ export interface RepoCreateForbiddenInfo {
   repo_name: string;
   project_path: string;
 }
+
+export interface AmplifierSessionInfo {
+  issue_number: number;
+  status: "running" | "completed" | "failed";
+  started_at: string;
+  finished_at: string | null;
+  exit_code: number | null;
+  error: string | null;
+}

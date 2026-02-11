@@ -9,6 +9,7 @@ Attractor App is an app aimed at code-free creation of complex apps.
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Tauri v2 system dependencies -- see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 - A GitHub account
+- [Amplifier CLI](https://github.com/microsoft/amplifier) (optional, for AI-assisted issue resolution)
 
 ## Getting Started
 
@@ -55,6 +56,28 @@ If the app needs a repo it can't create, it will tell you the exact name and lin
 
 The token is stored in your OS keychain via Tauri's secure store plugin. It never touches the browser/webview.
 
+## Amplifier Integration
+
+The app can hand off issues to [Amplifier](https://github.com/microsoft/amplifier) for AI-assisted resolution. From the Issue Detail sidebar, click **Run Amplifier** to spawn a session that reads the issue, works on it in your project directory, and posts a summary comment when finished.
+
+### Setup
+
+1. Install the Amplifier CLI: `uv tool install git+https://github.com/microsoft/amplifier`
+2. Set `ANTHROPIC_API_KEY` in your environment (the default provider is Anthropic).
+3. Ensure `amplifier` is on your `PATH`.
+
+On first run the app creates `.amplifier/settings.local.yaml` in your project directory if one does not already exist. This file configures the provider. To use a different provider or model, edit it directly.
+
+### How It Works
+
+1. You click **Run Amplifier** on an issue.
+2. The backend builds a prompt from the issue title and body, then spawns `amplifier run --output-format json "<prompt>"` as a child process in the project directory.
+3. The sidebar shows a spinner while the session runs. You can cancel at any time.
+4. When the session finishes, the app writes the result as a comment on the issue (success summary or error message), commits, and pushes.
+5. The comment list refreshes automatically via Tauri events (`amplifier:started`, `amplifier:completed`, `amplifier:failed`).
+
+Multiple issues can have concurrent Amplifier sessions. Session state is in-memory only; completed results are persisted as issue comments.
+
 ## How It Works
 
 **Backend (Rust)**
@@ -63,6 +86,7 @@ The token is stored in your OS keychain via Tauri's secure store plugin. It neve
 - [src-tauri/src/models.rs](src-tauri/src/models.rs) -- Data models (GitHub Issues API shapes)
 - [src-tauri/src/github.rs](src-tauri/src/github.rs) -- GitHub API client (repo listing, creation, auth)
 - [src-tauri/src/commands.rs](src-tauri/src/commands.rs) -- Tauri commands (full backend API surface)
+- [src-tauri/src/amplifier.rs](src-tauri/src/amplifier.rs) -- Amplifier subprocess lifecycle (spawn, monitor, cancel)
 - [src-tauri/src/state.rs](src-tauri/src/state.rs), [src-tauri/src/lib.rs](src-tauri/src/lib.rs) -- App state and token management
 
 **Frontend (React + TypeScript)**
@@ -72,4 +96,4 @@ The token is stored in your OS keychain via Tauri's secure store plugin. It neve
 - [src/components/AuthGate.tsx](src/components/AuthGate.tsx) -- Authentication gate
 - [src/pages/ProjectPicker.tsx](src/pages/ProjectPicker.tsx) -- Project Picker screen
 - [src/pages/IssuesView.tsx](src/pages/IssuesView.tsx) -- Issues View screen
-- [src/pages/IssueDetail.tsx](src/pages/IssueDetail.tsx) -- Issue Detail screen
+- [src/pages/IssueDetail.tsx](src/pages/IssueDetail.tsx) -- Issue Detail screen (includes Amplifier session UI)

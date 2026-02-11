@@ -189,7 +189,7 @@ export function ProjectPicker() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   const goToProject = async (project: RecentProject) => {
-    await api.selectProject(project.owner, project.repo);
+    await api.selectProject(project.owner, project.repo, project.local_path);
     navigate(`/project/${project.owner}/${project.repo}`, {
       state: {
         projectName: project.local_path.split("/").pop() || project.local_path,
