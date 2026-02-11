@@ -172,3 +172,38 @@ class AmplifierSessionInfo(BaseModel):
     started_at: str
     finished_at: str | None = None
     error: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Project / store configuration (Phase 1 – configurable store backing)
+# ---------------------------------------------------------------------------
+
+
+class StoreManifest(BaseModel):
+    """Contents of ``.attractor-store.json`` inside a store directory."""
+
+    store_id: str
+
+
+class GitHubStoreConfig(BaseModel):
+    """Optional GitHub remote metadata for a store."""
+
+    owner: str
+    repo: str
+    remote_url: str
+
+
+class StoreConfig(BaseModel):
+    """Describes where a project's issues store lives on disk."""
+
+    path: str
+    github: GitHubStoreConfig | None = None
+
+
+class ProjectConfig(BaseModel):
+    """Persisted as ``project.json`` inside a project metadata directory."""
+
+    name: str
+    created_at: datetime
+    store_id: str
+    store: StoreConfig

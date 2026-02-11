@@ -278,3 +278,10 @@ class ProjectStorage:
     def push(self) -> None:
         if self._has_remote():
             self._git("push")
+
+    def set_remote(self, url: str) -> None:
+        """Set or update the git remote 'origin' URL."""
+        if self._has_remote():
+            self._git("remote", "set-url", "origin", url)
+        else:
+            self._git("remote", "add", "origin", url)

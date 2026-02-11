@@ -54,3 +54,36 @@ export interface AmplifierSessionInfo {
   finishedAt: string | null
   error: string | null
 }
+
+export interface GitHubStoreConfig {
+  owner: string
+  repo: string
+  remote_url: string
+}
+
+export interface StoreConfig {
+  path: string
+  github: GitHubStoreConfig | null
+}
+
+export interface GitHubStatus {
+  configured: boolean
+  user: string | null
+  validated_at: string | null
+}
+
+export interface StoreStatus {
+  store_id: string
+  path: string
+  github: GitHubStoreConfig | null
+}
+
+export interface SyncResult {
+  pulled: boolean
+  pushed: boolean
+}
+
+export interface PatUrl {
+  url: string
+  required_permissions: string[]
+}

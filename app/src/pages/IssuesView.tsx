@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Tag,
   ArrowUpDown,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -221,6 +222,13 @@ export default function IssuesView() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h1 className="text-xl font-bold">{project}</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(`/project/${encodeURIComponent(project)}/settings`)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
         <Dialog
           open={createOpen}

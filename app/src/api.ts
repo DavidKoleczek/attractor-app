@@ -4,6 +4,11 @@ import type {
   Label,
   ListResponse,
   AmplifierSessionInfo,
+  GitHubStatus,
+  StoreStatus,
+  SyncResult,
+  PatUrl,
+  StoreConfig,
 } from "@/types"
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -40,6 +45,8 @@ export interface ProjectInfo {
   name: string
   path: string
   issues_path: string
+  store_id: string
+  store: StoreConfig
 }
 
 export interface IssueFilters {
@@ -272,5 +279,50 @@ export const api = {
   },
   listAmplifierSessions(): Promise<AmplifierSessionInfo[]> {
     return request("/api/amplifier/sessions")
+  },
+
+  // -- GitHub Auth --
+  getGitHubStatus(): Promise<GitHubStatus> {
+    return request("/api/github/status")
+  },
+  setGitHubToken(token: string): Promise<{ user: string; validated_at: string }> {
+    return request("/api/github/token", { method: "POST", ...json({ token }) })
+  },
+  removeGitHubToken(): Promise<void> {
+    return request("/api/github/token", { method: "DELETE" })
+  },
+  getPatUrl(): Promise<PatUrl> {
+    return request("/api/github/pat-url")
+  },
+
+  // -- Store --
+  getStore(project: string): Promise<StoreStatus> {
+    return request(`/api/projects/${enc(project)}/store`)
+  },
+  connectStore(
+    project: string,
+    owner: string,
+    repo: string,
+  ): Promise<StoreStatus> {
+    return request(`/api/projects/${enc(project)}/store/connect`, {
+      method: "POST",
+      ...json({ owner, repo }),
+    })
+  },
+  createRemote(
+    project: string,
+    repoName: string,
+    isPrivate: boolean = true,
+    description: string = "",
+  ): Promise<StoreStatus> {
+    return request(`/api/projects/${enc(project)}/store/create-remote`, {
+      method: "POST",
+      ...json({ repo_name: repoName, private: isPrivate, description }),
+    })
+  },
+  syncStore(project: string): Promise<SyncResult> {
+    return request(`/api/projects/${enc(project)}/store/sync`, {
+      method: "POST",
+    })
   },
 }

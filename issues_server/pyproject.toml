@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.128.8",
+    "httpx>=0.28.0",
     "pydantic-settings>=2.12.0",
 ]
 

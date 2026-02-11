@@ -3,15 +3,15 @@
 Run with: uv run fastapi dev src/issues_server/main.py
 """
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .deps import get_settings, get_ws_manager
-from .routes import amplifier, comments, issues, labels, projects
+from .routes import amplifier, comments, github_auth, issues, labels, projects, store
 
 
 @asynccontextmanager
@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     projects_dir = settings.data_dir / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
+    stores_dir = settings.data_dir / "stores"
+    stores_dir.mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -39,6 +41,8 @@ app.include_router(issues.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")
 app.include_router(labels.router, prefix="/api")
 app.include_router(amplifier.router, prefix="/api")
+app.include_router(github_auth.router, prefix="/api")
+app.include_router(store.router, prefix="/api")
 
 
 # --- WebSocket --------------------------------------------------------------

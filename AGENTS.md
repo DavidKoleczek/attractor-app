@@ -12,6 +12,7 @@ Attractor App is an app aimed at code-free creation of complex apps such as at t
   - Keep it very concise
   - No emojis or em dashes.
   - Documentation should be written exactly like it is for production-grade, polished, open-source applications.
+- Make sure to update the README.md with any relevant changes, but maintaining the existing format and conciseness.
 
 # Architecture
 

@@ -110,8 +110,14 @@ class AmplifierManager:
         issue: Issue,
         project_storage: ProjectStorage,
         ws_manager: WebSocketManager,
+        project_dir: Path | None = None,
     ) -> None:
         """Launch an Amplifier session for the given issue.
+
+        Args:
+            project_dir: Project metadata directory used for CWD and
+                ``.amplifier/`` settings.  Falls back to the store path
+                when *None* (legacy behaviour).
 
         Raises:
             ValueError: If a session is already running for this issue.
@@ -124,7 +130,8 @@ class AmplifierManager:
                 f"Amplifier session already running for {project_name} issue #{issue_number}"
             )
 
-        self._ensure_settings(project_storage.path)
+        cwd = project_dir or project_storage.path
+        self._ensure_settings(cwd)
 
         prompt = self._build_prompt(issue)
 
@@ -134,7 +141,7 @@ class AmplifierManager:
             "--output-format",
             "json",
             prompt,
-            cwd=str(project_storage.path),
+            cwd=str(cwd),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { FolderOpen, Plus, Trash2 } from "lucide-react"
+import { FolderOpen, Plus, Trash2, Github } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -169,6 +169,12 @@ export default function ProjectPicker() {
               <div className="flex items-center gap-3">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium">{project.name}</span>
+                {project.store?.github && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Github className="h-3 w-3" />
+                    {project.store.github.owner}/{project.store.github.repo}
+                  </span>
+                )}
               </div>
               <Button
                 variant="ghost"

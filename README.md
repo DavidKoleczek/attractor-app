@@ -51,29 +51,42 @@ On first run the server creates `.amplifier/settings.local.yaml` in the project 
 
 Multiple issues can have concurrent Amplifier sessions. Session state is in-memory; results are persisted as issue comments.
 
+
+## GitHub-Backed Stores
+
+Each project's issues data lives in a **store** -- a local git repo under `data_dir/stores/{name}/`. By default stores are local-only. You can optionally back a store with a GitHub repository for sync and collaboration.
+
+### Connecting to GitHub
+
+1. Open a project and click the gear icon to go to **Settings**.
+2. Under **GitHub Authentication**, paste a [fine-grained Personal Access Token](https://github.com/settings/personal-access-tokens/new) with `Contents: read & write` and `Metadata: read` permissions. Add `Administration: read & write` if you also want to create repos from the app.
+3. Under **Store Configuration**, click **Connect to GitHub** and either connect to an existing repo or create a new one.
+
+Once connected, the project picker shows the linked GitHub repo and the settings page offers a **Sync Now** button for manual pull/push.
+
 ## Architecture
 
-**Backend** -- FastAPI (Python), git-backed JSON file storage. Each project is a local git repo containing issues, comments, and labels as JSON files. GitHub backing is optional: set a remote and push.
+**Backend** -- FastAPI (Python), git-backed JSON file storage. Project metadata lives in `data_dir/projects/{name}/project.json`; issues data lives in a separate store directory at `data_dir/stores/{name}/`, which is a local git repo. Stores can optionally be backed by a GitHub repository for sync and collaboration.
 
-- [issues_server/src/issues_server/main.py](issues_server/src/issues_server/main.py) -- App entry point, routing, static serving
+- [issues_server/src/issues_server/main.py](issues_server/src/issues_server/main.py) -- App entry point, routing, static serving, legacy migration
 - [issues_server/src/issues_server/storage.py](issues_server/src/issues_server/storage.py) -- Git-backed JSON storage
 - [issues_server/src/issues_server/models.py](issues_server/src/issues_server/models.py) -- Pydantic data models
 - [issues_server/src/issues_server/amplifier.py](issues_server/src/issues_server/amplifier.py) -- Amplifier subprocess lifecycle
-- [issues_server/src/issues_server/routes/](issues_server/src/issues_server/routes/) -- API endpoints (projects, issues, comments, labels, amplifier)
+- [issues_server/src/issues_server/github_client.py](issues_server/src/issues_server/github_client.py) -- GitHub API client for repo operations
+- [issues_server/src/issues_server/routes/](issues_server/src/issues_server/routes/) -- API endpoints (projects, issues, comments, labels, amplifier, store, github-auth)
 
 **Frontend** -- React + TypeScript + Tailwind v4 + shadcn/ui, built with Vite.
 
 - [app/src/pages/ProjectPicker.tsx](app/src/pages/ProjectPicker.tsx) -- Project selection
 - [app/src/pages/IssuesView.tsx](app/src/pages/IssuesView.tsx) -- Issue list with filters and pagination
 - [app/src/pages/IssueDetail.tsx](app/src/pages/IssueDetail.tsx) -- Issue detail with comments, labels, and Amplifier controls
+- [app/src/pages/ProjectSettings.tsx](app/src/pages/ProjectSettings.tsx) -- Project settings (store configuration, GitHub auth)
 - [app/src/api.ts](app/src/api.ts) -- API client
 - [app/src/ws.ts](app/src/ws.ts) -- WebSocket client for real-time updates
 
-## Production / Docker
 
-```bash
-cd app && pnpm build
-cd ../issues_server && uv run fastapi run src/issues_server/main.py
-```
+# Todos
 
-FastAPI serves the built SPA from `app/dist/` and exposes the API on a single port. See [Attractor-Amplifier-Spec.md](Attractor-Amplifier-Spec.md) for the full container strategy.
+- Server should have a production mode that will serve the build frontend
+- Containerization
+- Basic auth
