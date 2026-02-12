@@ -52,15 +52,29 @@ On first run the server creates `.amplifier/settings.local.yaml` in the project 
 Multiple issues can have concurrent Amplifier sessions. Session state is in-memory; results are persisted as issue comments.
 
 
-## GitHub-Backed Stores
+## Creating Projects
 
-Each project's issues data lives in a **store** -- a local git repo under `data_dir/stores/{name}/`. By default stores are local-only. You can optionally back a store with a GitHub repository for sync and collaboration.
+The project picker offers three ways to create a project:
 
-### Connecting to GitHub
+- **Open Folder** -- Point to an existing local directory (your code project). A backing issue store is created internally.
+- **Clone from GitHub** -- Clone a GitHub repository as the backing issue store. Requires a GitHub Personal Access Token (see below).
+- **New Empty Project** -- Create a project by name, optionally specifying a directory to create on disk.
+
+In all cases the issue store is managed transparently under `data_dir/stores/{name}/`. The path you choose (if any) is the project directory, not the store location.
+
+## GitHub Integration
+
+Each project's issues data lives in a **store** -- a local git repo under `data_dir/stores/{name}/`. By default stores are local-only. You can back a store with a GitHub repository for sync and collaboration, either at project creation time (Clone from GitHub) or afterwards from project settings.
+
+### Setup
+
+1. From the project picker, follow the banner link to create a [fine-grained Personal Access Token](https://github.com/settings/personal-access-tokens/new) with `Contents: read & write` and `Metadata: read` permissions. Add `Administration: read & write` if you also want to create repos from the app.
+2. Paste the token into the banner or into **Settings > GitHub Authentication** on any project.
+
+### Connecting an Existing Project
 
 1. Open a project and click the gear icon to go to **Settings**.
-2. Under **GitHub Authentication**, paste a [fine-grained Personal Access Token](https://github.com/settings/personal-access-tokens/new) with `Contents: read & write` and `Metadata: read` permissions. Add `Administration: read & write` if you also want to create repos from the app.
-3. Under **Store Configuration**, click **Connect to GitHub** and either connect to an existing repo or create a new one.
+2. Under **Store Configuration**, click **Connect to GitHub** and either connect to an existing repo or create a new one.
 
 Once connected, the project picker shows the linked GitHub repo and the settings page offers a **Sync Now** button for manual pull/push.
 
@@ -73,7 +87,7 @@ Once connected, the project picker shows the linked GitHub repo and the settings
 - [issues_server/src/issues_server/models.py](issues_server/src/issues_server/models.py) -- Pydantic data models
 - [issues_server/src/issues_server/amplifier.py](issues_server/src/issues_server/amplifier.py) -- Amplifier subprocess lifecycle
 - [issues_server/src/issues_server/github_client.py](issues_server/src/issues_server/github_client.py) -- GitHub API client for repo operations
-- [issues_server/src/issues_server/routes/](issues_server/src/issues_server/routes/) -- API endpoints (projects, issues, comments, labels, amplifier, store, github-auth)
+- [issues_server/src/issues_server/routes/](issues_server/src/issues_server/routes/) -- API endpoints (projects, issues, comments, labels, amplifier, store, github-auth, config, filesystem)
 
 **Frontend** -- React + TypeScript + Tailwind v4 + shadcn/ui, built with Vite.
 

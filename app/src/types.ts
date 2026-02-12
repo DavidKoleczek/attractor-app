@@ -87,3 +87,39 @@ export interface PatUrl {
   url: string
   required_permissions: string[]
 }
+
+export interface AppConfig {
+  pat_banner_dismissed: boolean
+  recent_projects: string[]
+}
+
+export interface PathValidationResponse {
+  path: string
+  status:
+    | "not_found"
+    | "empty"
+    | "has_content"
+    | "git_repo"
+    | "already_registered"
+    | "not_a_directory"
+    | "permission_denied"
+  project_name: string | null
+  suggested_name: string | null
+}
+
+export interface GitHubRepo {
+  full_name: string
+  name: string
+  owner: string
+  description: string | null
+  private: boolean
+  html_url: string
+}
+
+export interface CreateProjectRequest {
+  name: string
+  mode: "empty" | "folder" | "github"
+  path?: string
+  owner?: string
+  repo?: string
+}

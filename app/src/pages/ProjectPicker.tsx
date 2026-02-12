@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { FolderOpen, Plus, Trash2, Github } from "lucide-react"
+import { FolderOpen, Plus, Trash2, Github, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,12 +9,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { EmptyState } from "@/components/EmptyState"
+import { GitHubSetupBanner } from "@/components/GitHubSetupBanner"
+import { NewProjectFlow } from "@/components/NewProjectFlow"
 import { api, type ProjectInfo } from "@/api"
+import type { AppConfig, GitHubStatus } from "@/types"
 
 export default function ProjectPicker() {
   const navigate = useNavigate()
@@ -23,11 +24,12 @@ export default function ProjectPicker() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Create dialog
+  // New project flow
   const [createOpen, setCreateOpen] = useState(false)
-  const [newName, setNewName] = useState("")
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
+  const [hasGitHubToken, setHasGitHubToken] = useState(false)
+
+  // App config for recent projects
+  const [config, setConfig] = useState<AppConfig | null>(null)
 
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
@@ -37,8 +39,14 @@ export default function ProjectPicker() {
     setLoading(true)
     setError(null)
     try {
-      const list = await api.listProjects()
+      const [list, cfg, gh] = await Promise.all([
+        api.listProjects(),
+        api.getConfig().catch(() => null),
+        api.getGitHubStatus().catch(() => null),
+      ])
       setProjects(list)
+      if (cfg) setConfig(cfg)
+      if (gh) setHasGitHubToken(gh.configured)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects")
     } finally {
@@ -49,24 +57,6 @@ export default function ProjectPicker() {
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
-
-  async function handleCreate() {
-    if (!newName.trim()) return
-    setCreating(true)
-    setCreateError(null)
-    try {
-      await api.createProject(newName.trim())
-      setCreateOpen(false)
-      setNewName("")
-      fetchProjects()
-    } catch (err) {
-      setCreateError(
-        err instanceof Error ? err.message : "Failed to create project",
-      )
-    } finally {
-      setCreating(false)
-    }
-  }
 
   async function handleDelete() {
     if (!deleteTarget) return
@@ -84,57 +74,66 @@ export default function ProjectPicker() {
     }
   }
 
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Attractor</h1>
-        <Dialog
-          open={createOpen}
-          onOpenChange={(open) => {
-            setCreateOpen(open)
-            if (!open) {
-              setNewName("")
-              setCreateError(null)
-            }
+  // Build recent projects list
+  const recentNames = config?.recent_projects ?? []
+  const recentProjects =
+    recentNames.length > 0 && projects.length > 3
+      ? recentNames
+          .map((name) => projects.find((p) => p.name === name))
+          .filter((p): p is ProjectInfo => p !== undefined)
+      : []
+
+  function renderProjectRow(project: ProjectInfo) {
+    return (
+      <div
+        key={project.name}
+        className="flex cursor-pointer items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-accent"
+        onClick={() =>
+          navigate(`/project/${encodeURIComponent(project.name)}`)
+        }
+      >
+        <div className="flex items-center gap-3">
+          <FolderOpen className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium">{project.name}</span>
+          {project.store?.github && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Github className="h-3 w-3" />
+              {project.store.github.owner}/{project.store.github.repo}
+            </span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            setDeleteTarget(project.name)
           }}
         >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New Project</DialogTitle>
-              <DialogDescription>
-                Create a new project to start tracking issues.
-              </DialogDescription>
-            </DialogHeader>
-            <Input
-              placeholder="Project name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate()
-              }}
-              disabled={creating}
-              autoFocus
-            />
-            {createError && (
-              <p className="text-sm text-destructive">{createError}</p>
-            )}
-            <DialogFooter>
-              <Button
-                onClick={handleCreate}
-                disabled={creating || !newName.trim()}
-              >
-                {creating ? "Creating..." : "Create"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          <Trash2 className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl px-6 py-10">
+      <GitHubSetupBanner />
+
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Attractor</h1>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Project
+        </Button>
+      </div>
+
+      <NewProjectFlow
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={fetchProjects}
+        hasGitHubToken={hasGitHubToken}
+      />
 
       {loading && (
         <div className="flex justify-center py-12">
@@ -159,35 +158,44 @@ export default function ProjectPicker() {
       )}
 
       {!loading && !error && projects.length > 0 && (
-        <div className="space-y-2">
-          {projects.map((project) => (
-            <div
-              key={project.name}
-              className="flex cursor-pointer items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:bg-accent"
-              onClick={() => navigate(`/project/${encodeURIComponent(project.name)}`)}
-            >
-              <div className="flex items-center gap-3">
-                <FolderOpen className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">{project.name}</span>
-                {project.store?.github && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Github className="h-3 w-3" />
-                    {project.store.github.owner}/{project.store.github.repo}
-                  </span>
-                )}
+        <div className="space-y-6">
+          {/* Recent projects section */}
+          {recentProjects.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Recent
+              </h2>
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {recentProjects.map((project) => (
+                  <div
+                    key={`recent-${project.name}`}
+                    className="flex min-w-[140px] cursor-pointer flex-col items-center gap-2 rounded-lg border px-4 py-3 text-center transition-colors hover:bg-accent"
+                    onClick={() =>
+                      navigate(
+                        `/project/${encodeURIComponent(project.name)}`,
+                      )
+                    }
+                  >
+                    <FolderOpen className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {project.name}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setDeleteTarget(project.name)
-                }}
-              >
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
-              </Button>
             </div>
-          ))}
+          )}
+
+          {/* All projects */}
+          <div className="space-y-2">
+            {recentProjects.length > 0 && (
+              <h2 className="text-sm font-medium text-muted-foreground">
+                All Projects
+              </h2>
+            )}
+            {projects.map(renderProjectRow)}
+          </div>
         </div>
       )}
 

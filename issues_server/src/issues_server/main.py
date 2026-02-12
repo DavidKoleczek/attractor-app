@@ -11,7 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .deps import get_settings, get_ws_manager
-from .routes import amplifier, comments, github_auth, issues, labels, projects, store
+from .routes import (
+    amplifier,
+    comments,
+    config,
+    filesystem,
+    github_auth,
+    issues,
+    labels,
+    projects,
+    store,
+)
 
 
 @asynccontextmanager
@@ -43,6 +53,8 @@ app.include_router(labels.router, prefix="/api")
 app.include_router(amplifier.router, prefix="/api")
 app.include_router(github_auth.router, prefix="/api")
 app.include_router(store.router, prefix="/api")
+app.include_router(config.router, prefix="/api")
+app.include_router(filesystem.router, prefix="/api")
 
 
 # --- WebSocket --------------------------------------------------------------

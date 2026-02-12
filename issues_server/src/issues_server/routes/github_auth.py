@@ -3,7 +3,7 @@
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from issues_server.config import Settings
@@ -129,3 +129,39 @@ async def get_pat_url() -> PatUrlResponse:
         url=PAT_CREATE_URL,
         required_permissions=REQUIRED_PERMISSIONS,
     )
+
+
+class GitHubRepoInfo(BaseModel):
+    full_name: str
+    name: str
+    owner: str
+    description: str | None = None
+    private: bool
+    html_url: str
+
+
+@router.get("/repos")
+async def list_repos(
+    q: str | None = Query(default=None),
+    settings: Settings = Depends(get_settings),
+) -> list[GitHubRepoInfo]:
+    """List GitHub repos for the authenticated user, optionally filtered by name prefix."""
+    token = get_github_token(settings)
+    if token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="GitHub token not configured. Set a token first via POST /api/github/token.",
+        )
+    client = GitHubClient(token)
+    raw = await client.list_repos(prefix=q)
+    return [
+        GitHubRepoInfo(
+            full_name=r["full_name"],
+            name=r["name"],
+            owner=r["owner"]["login"],
+            description=r.get("description"),
+            private=r["private"],
+            html_url=r["html_url"],
+        )
+        for r in raw
+    ]

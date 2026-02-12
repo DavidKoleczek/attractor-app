@@ -9,6 +9,10 @@ import type {
   SyncResult,
   PatUrl,
   StoreConfig,
+  AppConfig,
+  PathValidationResponse,
+  GitHubRepo,
+  CreateProjectRequest,
 } from "@/types"
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -86,6 +90,19 @@ export interface UpdateLabelPayload {
 }
 
 export const api = {
+  // -- App Config --
+  getConfig(): Promise<AppConfig> {
+    return request("/api/config")
+  },
+  updateConfig(updates: Partial<AppConfig>): Promise<AppConfig> {
+    return request("/api/config", { method: "PATCH", ...json(updates) })
+  },
+
+  // -- Filesystem --
+  validatePath(path: string): Promise<PathValidationResponse> {
+    return request(`/api/filesystem/validate-path${qs({ path })}`)
+  },
+
   // -- Projects --
   listProjects(): Promise<ProjectInfo[]> {
     return request("/api/projects")
@@ -94,7 +111,10 @@ export const api = {
     return request(`/api/projects/${enc(name)}`)
   },
   createProject(name: string): Promise<ProjectInfo> {
-    return request("/api/projects", { method: "POST", ...json({ name }) })
+    return request("/api/projects/", { method: "POST", ...json({ name }) })
+  },
+  createProjectAdvanced(data: CreateProjectRequest): Promise<ProjectInfo> {
+    return request("/api/projects/", { method: "POST", ...json(data) })
   },
   deleteProject(name: string): Promise<void> {
     return request(`/api/projects/${enc(name)}`, { method: "DELETE" })
@@ -293,6 +313,9 @@ export const api = {
   },
   getPatUrl(): Promise<PatUrl> {
     return request("/api/github/pat-url")
+  },
+  listRepos(q?: string): Promise<GitHubRepo[]> {
+    return request(`/api/github/repos${q ? qs({ q }) : ""}`)
   },
 
   // -- Store --

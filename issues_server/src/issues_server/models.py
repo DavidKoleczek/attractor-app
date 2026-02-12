@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -207,3 +207,38 @@ class ProjectConfig(BaseModel):
     created_at: datetime
     store_id: str
     store: StoreConfig
+    project_path: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# App-level configuration
+# ---------------------------------------------------------------------------
+
+
+class AppConfig(BaseModel):
+    """Persisted as ``app-config.json`` in the data directory."""
+
+    pat_banner_dismissed: bool = False
+    recent_projects: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Filesystem validation
+# ---------------------------------------------------------------------------
+
+
+class PathValidationResponse(BaseModel):
+    """Result of validating a filesystem path for use as a project directory."""
+
+    path: str
+    status: Literal[
+        "not_found",
+        "empty",
+        "has_content",
+        "git_repo",
+        "already_registered",
+        "not_a_directory",
+        "permission_denied",
+    ]
+    project_name: str | None = None
+    suggested_name: str | None = None
