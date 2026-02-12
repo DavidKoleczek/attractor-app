@@ -111,10 +111,10 @@ export const api = {
     return request(`/api/projects/${enc(name)}`)
   },
   createProject(name: string): Promise<ProjectInfo> {
-    return request("/api/projects/", { method: "POST", ...json({ name }) })
+    return request("/api/projects", { method: "POST", ...json({ name }) })
   },
   createProjectAdvanced(data: CreateProjectRequest): Promise<ProjectInfo> {
-    return request("/api/projects/", { method: "POST", ...json(data) })
+    return request("/api/projects", { method: "POST", ...json(data) })
   },
   deleteProject(name: string): Promise<void> {
     return request(`/api/projects/${enc(name)}`, { method: "DELETE" })
