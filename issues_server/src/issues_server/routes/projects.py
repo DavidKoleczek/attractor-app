@@ -117,7 +117,7 @@ class ProjectInfo(BaseModel):
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.get("/")
+@router.get("")
 def list_projects(settings: Settings = Depends(get_settings)) -> list[ProjectInfo]:
     """List all projects that have a project.json configuration."""
     projects_dir = settings.data_dir / "projects"
@@ -370,7 +370,7 @@ async def _create_github(req: CreateProjectRequest, settings: Settings) -> Proje
     return _build_project_info(config, project_dir, store_dir)
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_project(
     req: CreateProjectRequest, settings: Settings = Depends(get_settings)
 ) -> ProjectInfo:

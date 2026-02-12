@@ -1,6 +1,7 @@
 # Project specific
 issues_server/data/
 specs/
+data/
 
 # Dependencies
 node_modules
