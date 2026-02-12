@@ -1,0 +1,44 @@
+name: Build Frontend
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: app
+        run: pnpm build
+
+      - name: Package
+        run: tar -czf frontend-dist.tar.gz -C app/dist .
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete frontend-latest --yes || true
+          git push origin :refs/tags/frontend-latest || true
+          gh release create frontend-latest frontend-dist.tar.gz \
+            --title "Frontend Build (latest)" \
+            --notes "Auto-built from $(git rev-parse --short HEAD)" \
+            --prerelease

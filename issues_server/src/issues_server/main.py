@@ -36,13 +36,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title="Attractor Issues Server", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if not get_settings().production:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # --- API routes (all under /api) -------------------------------------------
 
@@ -55,6 +56,11 @@ app.include_router(github_auth.router, prefix="/api")
 app.include_router(store.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
 app.include_router(filesystem.router, prefix="/api")
+
+
+@app.get("/api/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 # --- WebSocket --------------------------------------------------------------

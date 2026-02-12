@@ -29,6 +29,36 @@ pnpm dev
 
 The app is available at `http://localhost:5173`. The Vite dev server proxies `/api` and `/ws` to the FastAPI backend on port 8000.
 
+For single-command production usage, see [Production Mode](#production-mode).
+
+## Production Mode
+
+Production mode serves the full application (API + SPA) from a single process. The server downloads the latest frontend build from GitHub on first start -- no Node.js tooling required.
+
+Start in production mode:
+
+```bash
+cd issues_server
+uv run issues-server --production
+```
+
+The first run downloads the frontend (~a few seconds). Subsequent starts use the cached build. To force a fresh download:
+
+```bash
+uv run issues-server --update-frontend
+```
+
+Additional flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--production` | off | Serve the SPA, bind to `0.0.0.0` |
+| `--update-frontend` | off | Force re-download (implies `--production`) |
+| `--host HOST` | `0.0.0.0` (prod) / `127.0.0.1` (dev) | Listen address |
+| `--port PORT` | `8000` | Listen port |
+
+All flags have equivalent `ATTRACTOR_*` environment variables (e.g. `ATTRACTOR_PRODUCTION=true`). For private repos, set `ATTRACTOR_GITHUB_TOKEN`.
+
 ## Amplifier Integration
 
 Issues can be handed off to [Amplifier](https://github.com/microsoft/amplifier) for AI-assisted resolution. From the Issue Detail sidebar, click **Run Amplifier** to spawn a session that reads the issue, works on it, and posts a summary comment when finished.
@@ -101,6 +131,5 @@ Once connected, the project picker shows the linked GitHub repo and the settings
 
 # Todos
 
-- Server should have a production mode that will serve the build frontend
 - Containerization
 - Basic auth
