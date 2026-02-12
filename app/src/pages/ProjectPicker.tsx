@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/EmptyState"
 import { GitHubSetupBanner } from "@/components/GitHubSetupBanner"
 import { NewProjectFlow } from "@/components/NewProjectFlow"
 import { api, type ProjectInfo } from "@/api"
-import type { AppConfig, GitHubStatus } from "@/types"
+import type { AppConfig } from "@/types"
 
 export default function ProjectPicker() {
   const navigate = useNavigate()
