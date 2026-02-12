@@ -6,34 +6,26 @@ Code-free creation of complex apps.
 
 - [Python](https://www.python.org/) 3.13+
 - [uv](https://docs.astral.sh/uv/)
-- [Node.js](https://nodejs.org/) v18+
-- [pnpm](https://pnpm.io/) v10+
-- [Amplifier CLI](https://github.com/microsoft/amplifier)
 
 ## Getting Started
 
-Start the backend:
+Run Attractor with a single command -- no clone, no Node.js required:
 
 ```bash
-cd issues_server
-uv run fastapi dev src/issues_server/main.py
+uvx --from "git+https://github.com/DavidKoleczek/attractor-app#subdirectory=issues_server" issues-server --production
 ```
 
-In a second terminal, start the frontend:
+The first run installs dependencies and downloads the frontend (~a few seconds). The app is available at `http://localhost:8000`.
+
+To force a fresh frontend download:
 
 ```bash
-cd app
-pnpm install
-pnpm dev
+uvx --from "git+https://github.com/DavidKoleczek/attractor-app#subdirectory=issues_server" issues-server --update-frontend
 ```
-
-The app is available at `http://localhost:5173`. The Vite dev server proxies `/api` and `/ws` to the FastAPI backend on port 8000.
-
-For single-command production usage, see [Production Mode](#production-mode).
 
 ## Production Mode
 
-Production mode serves the full application (API + SPA) from a single process. The server downloads the latest frontend build from GitHub on first start -- no Node.js tooling required.
+For a local clone, production mode serves the full application (API + SPA) from a single process. The server downloads the latest frontend build from GitHub on first start -- no Node.js tooling required.
 
 Start in production mode:
 
@@ -58,6 +50,31 @@ Additional flags:
 | `--port PORT` | `8000` | Listen port |
 
 All flags have equivalent `ATTRACTOR_*` environment variables (e.g. `ATTRACTOR_PRODUCTION=true`). For private repos, set `ATTRACTOR_GITHUB_TOKEN`.
+
+## Development
+
+Additional prerequisites for development:
+
+- [Node.js](https://nodejs.org/) v18+
+- [pnpm](https://pnpm.io/) v10+
+- [Amplifier CLI](https://github.com/microsoft/amplifier)
+
+Start the backend:
+
+```bash
+cd issues_server
+uv run fastapi dev src/issues_server/main.py
+```
+
+In a second terminal, start the frontend:
+
+```bash
+cd app
+pnpm install
+pnpm dev
+```
+
+The app is available at `http://localhost:5173`. The Vite dev server proxies `/api` and `/ws` to the FastAPI backend on port 8000.
 
 ## Amplifier Integration
 
